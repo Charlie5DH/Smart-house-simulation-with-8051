@@ -1,0 +1,348 @@
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 1
+
+
+
+
+
+       MCS-51 Family Macro Assembler   A S E M - 5 1   V 1.3
+       =====================================================
+
+
+
+	Source File:	CODIGO.ASM
+	Object File:	CODIGO.hex
+	List File:	CODIGO.lst
+
+
+
+ Line  I  Addr  Code            Source
+
+    1:		B      0038	LISTO EQU 27H.0
+    2:		B      00B5	RD_ADC EQU P3.5
+    3:		B      00B4	WR_ADC EQU P3.4
+    4:		B      00B3	CS EQU P3.3
+    5:		N      0035	SENSOR EQU 35H
+    6:		N      0036	CONT EQU 36H
+    7:		B      0080	BOCINA EQU P0.0
+    8:		B      00B6	BOMBA EQU P3.6
+    9:		B      00B7	LAMP EQU P3.7
+   10:		B      0082	PRES EQU P0.2
+   11:		N      0000	org 0H
+   12:	  0000	80 4E		  sjmp  inicio ;salto al inicio del programa principal.  ; /////////////////////////////////////////
+				////////////////////////////////////////
+   13:				; Subrutina de atención a la interrupción EXTERNA 0 del microcontrolador
+   14:				; empleada para atender el Fin de Conversión.
+   15:
+   16:				; Leyendo el Conversor ADC0801.
+   17:		N      0003	org 03H
+   18:	  0003	02 00 EB	JMP EXT0
+   19:
+   20:				;///////////////////////////////////////////////////////////////////////////////////////////////////
+				///////////////////////////////////////
+   21:		N      000B	ORG 0BH		;VECTOR DE INTERRUPCION DEL TIMER0
+   22:	  000B	02 01 06	JMP TMP0
+   23:
+   24:		N      0050	ORG 50H
+   25:				; Inicio del programa principal.
+   26:	  0050			inicio:
+   27:	  0050	C2 B6		 CLR BOMBA
+   28:	  0052	C2 80		 CLR BOCINA
+   29:	  0054	C2 B7		 CLR LAMP
+   30:	  0056	C2 82		 CLR PRES
+   31:	  0058	C2 38		 clr  LISTO ;limpiando bandera de dato leído
+   32:	  005A	75 35 00	  MOV SENSOR,#0
+   33:	  005D	75 36 05	  MOV CONT,#5
+   34:
+   35:	  0060	7F 00		  mov  R7,#0 ;limpiando el registro de dato leído
+   36:	  0062	75 88 11	  MOV TCON,#11H		;EXTERNA0 POR FRENTE DESCENDENTE Y HABILITACION DEL TIMER0
+   37:				; Dando una falsa lectura al conversor.
+   38:				; Esto hay que hacerlo solo una vez y con ello garantizamos que el conversor
+   39:				; este listo para el trabajo. Es como un RESET al conversor.
+   40:	  0065	C2 B3		  clr  CS ; se pone SELECT a 0 y no se cambia mas
+   41:	  0067	C2 B5		  clr  RD_ADC  ; LECT a 0, lectura del conversor.
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 2
+
+
+
+ Line  I  Addr  Code            Source
+
+   42:	  0069	00		  nop
+   43:	  006A	00		  nop
+   44:	  006B	D2 B5		  setb RD_ADC
+   45:				; Esperando por dato leído, respuesta de la Subrutina de atención a Fin de
+   46:				; Conversión.
+   47:
+   48:	  006D	79 00				MOV R1,#0		;REGISTRO QUE SE VA A LLEVAR A 2 EN EL TIMER PARA EJECUTAR L
+				OS 50ms 2 VECES=100ms
+   49:	  006F	75 89 01			MOV TMOD,#01H		;TIMER0 EN MODO 1 DE 16 BITS
+   50:	  0072	75 8A D8			MOV TL0,#0D8H
+   51:	  0075	75 8C F0			MOV TH0,#0F0H
+   52:	  0078	75 B8 01			MOV IP,#01H
+   53:	  007B	75 A8 82			MOV IE,#82H		;HABILITA LA INTERRUPCION GLOBAL Y TIMER 0
+   54:
+   55:	  007E			REVISALO:
+   56:				; Habilitar la interrupcion EXTERNA 0.
+   57:	  007E	C2 89		  clr  IE0  ;limpiando la bandera de interrupción EXTERNA 0
+   58:	  0080	D2 A8		  SETB IE.0  ;habilitando la interrupción EXTERNA 0
+   59:	  0082	D2 AF		  SETB IE.7
+   60:	  0084	30 38 FD	jnb LISTO,$
+   61:	  0087	C2 38		clr  LISTO ;limpiando la bandera de dato leído
+   62:				; TRABAJANDO CON EL DATO LEIDO. El dato a mostrar esta en el Registro R7.
+   63:
+   64:	  0089	E5 B0		  MOV A,P3
+   65:	  008B	45 35		  ORL A,SENSOR
+   66:	  008D	F5 B0		  MOV P3,A	;PREPARO PARA LEER OTRO SENSOR
+   67:
+   68:	  008F	74 00		MOV A,#0
+   69:	  0091	85 35 F0	MOV B,SENSOR
+   70:	  0094	65 F0		XRL A,B
+   71:	  0096	70 22		JNZ SENSOR_HUMO
+   72:
+   73:
+   74:	  0098	74 01		MOV A,#1
+   75:	  009A	85 35 F0	MOV B,SENSOR
+   76:	  009D	65 F0		XRL A,B
+   77:	  009F	70 29		JNZ SENSOR_LUZ
+   78:
+   79:	  00A1	74 02		MOV A,#2
+   80:	  00A3	85 35 F0	MOV B,SENSOR
+   81:	  00A6	65 F0		XRL A,B
+   82:	  00A8	70 30		JNZ SENSOR_PRESENCIA
+   83:
+   84:	  00AA			SENSOR_NIVEL:
+   85:	  00AA	EF		MOV A,R7
+   86:	  00AB	B4 0F 00	CJNE A,#0FH,NO_EQ
+   87:	  00AE			NO_EQ:
+   88:	  00AE	40 05		JC APAGA
+   89:				;ENCIENDE
+   90:	  00B0	D2 B6		SETB BOMBA
+   91:	  00B2	02 00 E7	JMP EXIT
+   92:	  00B5			APAGA:
+   93:	  00B5	C2 B6		CLR BOMBA
+   94:	  00B7	02 00 E7	JMP EXIT
+   95:
+   96:
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 3
+
+
+
+ Line  I  Addr  Code            Source
+
+   97:	  00BA			SENSOR_HUMO:
+   98:	  00BA	EF		MOV A,R7
+   99:	  00BB	B4 0F 00	CJNE A,#0FH,NO_EQ1
+  100:	  00BE			NO_EQ1:
+  101:	  00BE	40 05		JC APAGA1
+  102:				;ENCIENDE
+  103:	  00C0	D2 80		SETB BOCINA
+  104:	  00C2	02 00 E7	JMP EXIT
+  105:	  00C5			APAGA1:
+  106:	  00C5	C2 80		CLR BOCINA
+  107:	  00C7	02 00 E7	JMP EXIT
+  108:
+  109:	  00CA			SENSOR_LUZ:
+  110:	  00CA	EF		MOV A,R7
+  111:	  00CB	B4 0F 00	CJNE A,#0FH,NO_EQ2
+  112:	  00CE			NO_EQ2:
+  113:	  00CE	40 05		JC APAGA2
+  114:				;ENCIENDE
+  115:	  00D0	D2 B7		SETB LAMP
+  116:	  00D2	02 00 E7	JMP EXIT
+  117:	  00D5			APAGA2:
+  118:	  00D5	C2 B7		CLR LAMP
+  119:	  00D7	02 00 E7	JMP EXIT
+  120:
+  121:	  00DA			SENSOR_PRESENCIA:
+  122:	  00DA	EF		MOV A,R7
+  123:	  00DB	B4 0F 00	CJNE A,#0FH,NO_EQ3
+  124:	  00DE			NO_EQ3:
+  125:	  00DE	40 05		JC APAGA3
+  126:				;ENCIENDE
+  127:	  00E0	D2 82		SETB PRES
+  128:	  00E2	02 00 E7	JMP EXIT
+  129:	  00E5			APAGA3:
+  130:	  00E5	C2 82		CLR PRES
+  131:
+  132:	  00E7			EXIT:
+  133:	  00E7	05 35		INC SENSOR
+  134:	  00E9	80 93		JMP REVISALO
+  135:
+  136:	  00EB			EXT0:
+  137:
+  138:				  ;CLR IE.0 ;deshabilitando la interrupción EXTERNA 0
+  139:	  00EB	E5 36		  MOV A,CONT
+  140:	  00ED	D5 E0 06	  DJNZ ACC,SIGUE
+  141:				;CLR P2.0
+  142:	  00F0	75 36 05	  MOV CONT,#5
+  143:	  00F3	75 35 00	  MOV SENSOR,#0
+  144:	  00F6			  SIGUE:
+  145:	  00F6	15 36		  DEC CONT
+  146:	  00F8	C2 B5		  clr RD_ADC  ;dando lectura al ADC0801, CS/ esta a 0.
+  147:	  00FA	00		  nop   ;esperando por la respuesta del conversor ADC0801
+  148:	  00FB	00		  nop
+  149:	  00FC	D2 B5		  setb RD_ADC
+  150:	  00FE	E5 90		  mov  A,P1  ;leyendo el ADC0801
+  151:	  0100	FF		  mov  R7,A  ;salvando el dato leído
+  152:	  0101	D2 38		  setb  LISTO  ;indicando que hay un dato leído listo para ser mostrado
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 4
+
+
+
+ Line  I  Addr  Code            Source
+
+  153:	  0103	D2 B5		  setb RD_ADC ;quitando orden del lectura del ADC0801
+  154:	  0105	32		reti
+  155:
+  156:	  0106			TMP0:
+  157:	  0106	B2 A0				CPL P2.0
+  158:	  0108	09				INC R1
+  159:	  0109	B9 0A 08			CJNE R1,#10,OUT
+  160:
+  161:	  010C	C2 B4				clr  WR_ADC ; ICON a 0, inicio de conversión.
+  162:	  010E	00		 	        nop
+  163:	  010F	00		 		nop
+  164:	  0110	D2 B4				setb WR_ADC
+  165:	  0112	79 00				MOV R1,#0
+  166:
+  167:
+  168:	  0114	75 8A D8	OUT:		MOV TL0,#0D8H
+  169:	  0117	75 8C F0			MOV TH0,#0F0H
+  170:	  011A	32				RETI
+  171:
+  172:				;-----------------------------------------------------------------------
+  173:					END
+
+
+
+
+
+                     register banks used:  ---
+
+                     no errors
+
+
+
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 5
+
+
+
+
+
+	       L I S T   O F   S Y M B O L S
+	       =============================
+
+
+SYMBOL				  TYPE     VALUE	LINE
+------------------------------------------------------------
+??ASEM_51			  NUMBER    8051
+??VERSION			  NUMBER    0130
+AC				  BIT	      D6
+ACC				  DATA	      E0
+APAGA				  CODE	    00B5	  92
+APAGA1				  CODE	    00C5	 105
+APAGA2				  CODE	    00D5	 117
+APAGA3				  CODE	    00E5	 129
+B				  DATA	      F0
+BOCINA				  NUMBER    0080	   7
+BOMBA				  NUMBER    00B6	   8
+CONT				  NUMBER    0036	   6
+CS				  NUMBER    00B3	   4
+CY				  BIT	      D7
+DPH				  DATA	      83
+DPL				  DATA	      82
+EA				  BIT	      AF
+ES				  BIT	      AC
+ET0				  BIT	      A9
+ET1				  BIT	      AB
+EX0				  BIT	      A8
+EX1				  BIT	      AA
+EXIT				  CODE	    00E7	 132
+EXT0				  CODE	    00EB	 136
+EXTI0				  CODE	    0003
+EXTI1				  CODE	    0013
+F0				  BIT	      D5
+IE				  DATA	      A8
+IE0				  BIT	      89
+IE1				  BIT	      8B
+INICIO				  CODE	    0050	  26
+INT0				  BIT	      B2
+INT1				  BIT	      B3
+IP				  DATA	      B8
+IT0				  BIT	      88
+IT1				  BIT	      8A
+LAMP				  NUMBER    00B7	   9
+LISTO				  NUMBER    0038	   1
+NO_EQ				  CODE	    00AE	  87
+NO_EQ1				  CODE	    00BE	 100
+NO_EQ2				  CODE	    00CE	 112
+NO_EQ3				  CODE	    00DE	 124
+OUT				  CODE	    0114	 168
+OV				  BIT	      D2
+P				  BIT	      D0
+P0				  DATA	      80
+P1				  DATA	      90
+P2				  DATA	      A0
+P3				  DATA	      B0
+PCON				  DATA	      87
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 6
+
+
+
+SYMBOL				  TYPE     VALUE	LINE
+------------------------------------------------------------
+PRES				  NUMBER    0082	  10
+PS				  BIT	      BC
+PSW				  DATA	      D0
+PT0				  BIT	      B9
+PT1				  BIT	      BB
+PX0				  BIT	      B8
+PX1				  BIT	      BA
+RB8				  BIT	      9A
+RD				  BIT	      B7
+RD_ADC				  NUMBER    00B5	   2
+REN				  BIT	      9C
+RESET				  CODE	    0000
+REVISALO			  CODE	    007E	  55
+RI				  BIT	      98
+RS0				  BIT	      D3
+RS1				  BIT	      D4
+RXD				  BIT	      B0
+SBUF				  DATA	      99
+SCON				  DATA	      98
+SENSOR				  NUMBER    0035	   5
+SENSOR_HUMO			  CODE	    00BA	  97
+SENSOR_LUZ			  CODE	    00CA	 109
+SENSOR_NIVEL			  CODE	    00AA	  84
+SENSOR_PRESENCIA		  CODE	    00DA	 121
+SIGUE				  CODE	    00F6	 144
+SINT				  CODE	    0023
+SM0				  BIT	      9F
+SM1				  BIT	      9E
+SM2				  BIT	      9D
+SP				  DATA	      81
+T0				  BIT	      B4
+T1				  BIT	      B5
+TB8				  BIT	      9B
+TCON				  DATA	      88
+TF0				  BIT	      8D
+TF1				  BIT	      8F
+TH0				  DATA	      8C
+TH1				  DATA	      8D
+TI				  BIT	      99
+TIMER0				  CODE	    000B
+TIMER1				  CODE	    001B
+TL0				  DATA	      8A
+TL1				  DATA	      8B
+TMOD				  DATA	      89
+TMP0				  CODE	    0106	 156
+TR0				  BIT	      8C
+TR1				  BIT	      8E
+TXD				  BIT	      B1
+WR				  BIT	      B6
+WR_ADC				  NUMBER    00B4	   3

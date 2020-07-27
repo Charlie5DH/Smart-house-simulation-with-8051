@@ -1,0 +1,306 @@
+,,,
+,,,        DIG_1 EQU 30H
+,,,        DIG_2 EQU 31H
+,,,        DIG_3 EQU 32H
+,,,        DIG_4 EQU 33H
+000B,,,        E     EQU P0.1
+000B,,,        RS    EQU P0.0
+000B,,,        MAL   EQU 21H.7
+,,,;-----------------------------------------------------------------
+,,,        ORG 00H
+0000,02 00 50,,        JMP STARTUP
+,,,
+0003,2F 58 2D 2B,TABLA,        TABLA: DB '/','X','-','+',9,6,3,'=',8,5,2,0,7,4,1,'ON'
+,,,
+,,,        ; Secuencia de comandos para inicializar el trabajo del LCD.
+0014,28 06 0E 80,tablac,        tablac:  db  28h,06h,0Eh,80h,0fh ;CONEXION DE 4 BITS CON 2 LINEAS,MOVIMIENTO DEL CURSOSR DE
+,,,;******************************************************************************
+,,,; cartel 1.
+0019,30 31 32 33,tablad1,tablad1:  db  '0123456789' ;ES EL NUM Y UN 2 DELANTE EJ 7-27
+0023,00,,db  0   ; fin de cartel
+,,,;******************************************************************************
+,,,
+,,,;******************************************************************************
+,,,; cartel 1.
+0024,41 4C 41 52,tablad2,tablad2:  db  'ALARMA ACTIVA'
+0031,00,,db  0   ; fin de cartel
+,,,;******************************************************************************
+,,,; cartel 2.
+0032,41 4C 41 52,tablad3,tablad3:  db  'ALARMA DESACTIVA'
+0042,00,,db  0   ; fin de cartel
+,,,;******************************************************************************
+,,,        ORG 50H
+0050,,STARTUP,STARTUP:
+,,,;---------------------------INICIALIZACION---------------------
+0050,D2 81,,        SETB E                  ;DESHABILITA EL LCD
+0052,D2 80,,        SETB RS                 ;DESHABILITA EL LCD
+0054,C2 0F,,        CLR MAL
+0056,78 30,,        MOV R0,#30H
+0058,75 37 04,,        MOV 37H,#4
+005B,75 33 04,,        MOV DIG_4,#04H
+005E,75 32 03,,        MOV DIG_3,#03H
+0061,75 31 02,,        MOV DIG_2,#02H
+0064,75 30 01,,        MOV DIG_1,#01H
+,,,
+,,,;--------------------------------------------------------------
+,,,
+0067,C2 00,,        CLR 20H.0               ;BANDERA QUE INDICA SI SE PRESIONA UNA TECLA
+,,,
+,,,; Inicializando el trabajo del LCD.
+0069,12 01 A3,,        call  lcd_ini
+006C,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+006E,12 01 98,,        call SEND_TO_P0 ; (PARTE ALTA) borra LCD y Home.
+0071,12 01 EB,,        call  lcd_e   ; habilita al Display
+0074,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,
+0077,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+0079,12 01 98,,        call SEND_TO_P0;(PARTE BAJA) borra LCD y Home.
+007C,12 01 EB,,        call  lcd_e   ; habilita al Display
+007F,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,;----------------------------------------------------------------------------------
+0082,12 00 8F,BUS,BUS:    CALL TECLADO
+0085,20 00 02,,        JB 20H.0,LAZO           ;TECLA APRETADA?
+0088,80 F8,,        JMP BUS
+008A,,LAZO,LAZO:
+008A,12 00 B1,,CALL DISPLAY
+008D,80 F3,,JMP BUS
+,,,
+,,,;------------SUBRUTINA TECLADO----------------------------------
+008F,,TECLADO,TECLADO:
+008F,7E EF,,        MOV R6,#11101111B
+0091,7D 04,,        MOV R5,#4
+0093,7B 00,,        MOV R3,#0
+0095,,REPITE,REPITE:
+0095,8E A0,,        MOV P2,R6
+0097,E5 A0,,        MOV A,P2
+0099,7C 04,,        MOV R4,#4
+009B,,LAZO1,LAZO1:
+009B,13,,        RRC A
+009C,50 0F,,        JNC ENCONT
+009E,0B,,        INC R3
+009F,DC FA,,        DJNZ R4,LAZO1
+00A1,EE,,        MOV A,R6
+00A2,23,,        RL A
+00A3,FE,,        MOV R6,A
+00A4,DD EF,,        DJNZ R5,REPITE
+00A6,C2 00,,        CLR 20H.0
+00A8,E5 00,,        MOV A,0
+00AA,02 00 B0,,        JMP SALIR
+00AD,,ENCONT,ENCONT:
+00AD,D2 00,,        SETB 20H.0
+00AF,EB,,        MOV A,R3
+00B0,,SALIR,SALIR:
+00B0,22,,        RET
+,,,
+,,,;-----------------SUBRUTINA DISPLAY--------------------------------------
+00B1,,DISPLAY,DISPLAY:
+,,,
+00B1,90 00 03,,        MOV DPTR,#TABLA
+00B4,93,,        MOVC A,@A+DPTR
+00B5,86 F0,,        MOV B,@R0
+00B7,08,,        INC R0
+,,,
+,,,
+00B8,B5 F0 03,,        CJNE A,B,ERROR
+00BB,02 00 C0,,        JMP MANDALO
+00BE,,ERROR,        ERROR:
+00BE,D2 0F,,        SETB MAL
+,,,
+00C0,,MANDALO,        MANDALO:
+,,,;-------------------------------asignacion de num----------------------------
+00C0,90 00 19,,mov dptr,#tablad1
+00C3,93,,movc a,@a+dptr
+,,,;-----------------------------------------------------------------------------
+00C4,C0 E0,,        PUSH ACC
+00C6,54 F0,,        ANL A,#0F0H
+00C8,75 F0 04,,        MOV B,#4
+00CB,84,,        DIV AB          ;ROTO DER
+00CC,C2 80,,        CLR RS
+00CE,12 01 98,,        call SEND_TO_P0
+00D1,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+00D3,12 01 EB,,        call  lcd_e   ; habilita al Display
+00D6,12 01 F1,,        call  delay_40 ;demora de 0.4 ms.
+,,,
+00D9,D0 E0,,        POP ACC
+00DB,54 0F,,        ANL A,#0FH
+00DD,75 F0 04,,        MOV B,#4
+00E0,A4,,        MUL AB          ;ROTO IZQ
+00E1,12 01 98,,        call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+00E4,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+00E6,12 01 EB,,        call  lcd_e   ; habilita al Display
+00E9,12 01 FD,,        call  delay_c  ;demora de 0.4 ms.
+,,,
+00EC,D5 37 54,,        DJNZ 37H,NOO
+00EF,,MUESTRA,        MUESTRA:
+00EF,30 0F 54,,        JNB MAL,BIEN
+00F2,78 00,,mov  R0, #0
+00F4,7C 00,,mov  R4, #0
+,,,
+00F6,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+00F8,74 00,,        mov a,#0
+00FA,12 01 98,,        call SEND_TO_P0 ; (PARTE ALTA) borra LCD y Home.
+00FD,12 01 EB,,        call  lcd_e   ; habilita al Display
+0100,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,
+0103,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+0105,74 04,,        mov  a, #00000100b       ;(PARTE BAJA) borra LCD y Home.
+0107,12 01 98,,        call SEND_TO_P0
+010A,12 01 EB,,        call  lcd_e   ; habilita al Display
+010D,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,
+0110,90 00 24,,mov  dptr, #tablad2 ; puntero de la Tabla 2.
+0113,EC,otrodd,otrodd:   mov  a, R4   ; carga desplazamiento en Tabla
+0114,93,,movc  a, @a+dptr  ; extrae carácter a mostrar de la Tabla
+0115,60 80,,jz  NO ; ¿ Fin del cartel?
+0117,C0 E0,,        PUSH ACC
+0119,54 F0,,        ANL A,#0F0H
+011B,75 F0 04,,        MOV B,#4
+011E,84,,        DIV AB          ;ROTO DER
+011F,C2 80,,        CLR RS
+0121,12 01 98,,        call SEND_TO_P0; valor ASCII a sacar por Puerto1 (PARTE ALTA)
+0124,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+0126,12 01 EB,,        call  lcd_e   ; habilita al Display
+0129,12 01 F1,,        call  delay_40 ;demora de 0.4 ms.
+,,,
+012C,D0 E0,,        POP ACC
+012E,54 0F,,        ANL A,#0FH
+0130,75 F0 04,,        MOV B,#4
+0133,A4,,        MUL AB          ;ROTO IZQ
+0134,12 01 98,,        call SEND_TO_P0; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+0137,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+0139,12 01 EB,,        call  lcd_e   ; habilita al Display
+013C,12 01 FD,,        call  delay_c  ;demora de 0.4 ms.
+013F,08,,inc  R0
+0140,0C,,inc  R4
+0141,80 D0,,jmp  otrodd
+,,,
+0143,,NOO,NOO:
+0143,02 01 97,,        JMP NO
+0146,,BIEN,        BIEN:
+0146,78 00,,mov  R0, #0
+0148,7C 00,,mov  R4, #0
+,,,
+014A,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+014C,74 00,,        mov  a, #00000000b      ; (PARTE ALTA) borra LCD y Home.
+014E,12 01 98,,        call SEND_TO_P0
+0151,12 01 EB,,        call  lcd_e   ; habilita al Display
+0154,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,
+0157,C2 80,,        clr  RS  ; pone a RS en ´0´ (modo comando)
+0159,74 04,,        mov  a, #00000100b       ;(PARTE BAJA) borra LCD y Home.
+015B,12 01 98,,        call SEND_TO_P0
+015E,12 01 EB,,        call  lcd_e   ; habilita al Display
+0161,12 01 F6,,        call  delay_164  ; demora de 1.64 ms.
+,,,
+0164,90 00 32,,mov  dptr, #tablad3 ; puntero de la Tabla 2.
+0167,EC,otrod,otrod:   mov  a, R4   ; carga desplazamiento en Tabla
+0168,93,,movc  a, @a+dptr  ; extrae carácter a mostrar de la Tabla
+0169,60 2C,,jz  NO  ; ¿ Fin del cartel?
+016B,C0 E0,,        PUSH ACC
+016D,54 F0,,        ANL A,#0F0H
+016F,75 F0 04,,        MOV B,#4
+0172,84,,        DIV AB          ;ROTO DER
+0173,C2 80,,        CLR RS
+0175,12 01 98,,        call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE ALTA)
+0178,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+017A,12 01 EB,,        call  lcd_e   ; habilita al Display
+017D,12 01 F1,,        call  delay_40 ;demora de 0.4 ms.
+,,,
+0180,D0 E0,,        POP ACC
+0182,54 0F,,        ANL A,#0FH
+0184,75 F0 04,,        MOV B,#4
+0187,A4,,        MUL AB          ;ROTO IZQ
+0188,12 01 98,,        call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+018B,D2 80,,        SETB  RS  ; pone RS en ´1´ (modo dato).
+018D,12 01 EB,,        call  lcd_e   ; habilita al Display
+0190,12 01 FD,,        call  delay_c  ;demora de 0.4 ms.
+0193,08,,inc  R0
+0194,0C,,inc  R4
+0195,80 D0,,jmp  otrod
+0197,,NO,        NO:
+0197,22,,        RET
+,,,
+,,,
+,,,
+0198,,SEND_TO_P0,SEND_TO_P0:
+0198,F5 40,,        MOV 40H,A               ;GUARDO EL NUMERO QUE SE ENVIA A P0
+019A,E5 80,,        MOV A,P0                ;LECTURA DE P0
+019C,54 C0,,        ANL A,#11000000B        ;ME QUEDO CON LOS DOS BITS MAS ALTOS DE P0
+019E,45 40,,        ORL A,40H               ;CONCATENANDO LOS BITS
+01A0,F5 80,,        MOV P0,A
+01A2,22,,        RET
+,,,;-----------------------------------------------------------------------
+,,,
+,,,; Subrutina para la inicialización del LCD.
+,,,; Bus de Datos de 4 bits.
+,,,; Movimiento del cursor hacia la derecha.
+,,,; Limpiando la pantalla antes de empezar.
+,,,; Colocar cursor en la posición primera de la primera línea.
+,,,
+01A3,79 00,lcd_ini,lcd_ini:  mov  R1, #0  ; desplazamiento en la tabla de Comandos
+01A5,90 00 14,,mov  DPTR, #tablac ; puntero a Tabla de Comandos.
+01A8,E9,otroc,otroc:   mov  a, R1
+01A9,93,,movc  a, @a+DPTR  ; saca de la tabal el Comando a enviar.
+01AA,C2 80,,clr  RS
+,,,
+01AC,C0 E0,,PUSH ACC
+01AE,54 F0,,ANL A,#0F0H
+01B0,75 F0 04,,MOV B,#4        ;ROTO HASTA POSICION DESEADA
+01B3,84,,DIV AB          ;ROTO DER
+01B4,31 98,,call SEND_TO_P0;(PARTE ALTA)
+01B6,12 01 EB,,call  lcd_e
+01B9,12 01 F1,,call  delay_40
+,,,
+01BC,C2 80,,clr  RS
+01BE,75 F0 04,,MOV B,#4
+01C1,D0 E0,,POP ACC
+01C3,54 0F,,ANL A,#0FH
+01C5,A4,,MUL AB          ;ROTO IZQ
+01C6,31 98,,call SEND_TO_P0         ;(PARTE BAJA)
+01C8,12 01 EB,,call  lcd_e
+01CB,12 01 F1,,call  delay_40
+01CE,09,,inc  R1
+,,,
+01CF,B9 04 D6,,cjne  R1,#4, otroc  ; ¿ Fin de programación del LCD?
+01D2,C2 80,,clr  RS  ; pone a RS en ´0´ (modo comando)
+01D4,74 00,,mov  a, #00000000b ; borra LCD y Home. ;(PARTE ALTA)
+01D6,31 98,,call SEND_TO_P0
+01D8,12 01 EB,,call  lcd_e
+01DB,12 01 F6,,call  delay_164
+,,,
+01DE,C2 80,,clr  RS  ; pone a RS en ´0´ (modo comando)
+01E0,74 04,,mov  a, #00000100b ; borra LCD y Home. ;(PARTE BAJA)
+01E2,31 98,,call SEND_TO_P0
+01E4,12 01 EB,,call  lcd_e
+01E7,12 01 F6,,call  delay_164
+01EA,22,,ret
+,,,;******************************************************************************
+,,,
+,,,; Subrutina que genera el pulso de habilitación del LCD.
+,,,
+01EB,D2 81,lcd_e,lcd_e:   setb E  ; pone a E en ´1´
+01ED,00,,NOP
+01EE,C2 81,,clr  E   ; pone a E en ´0´
+01F0,22,,ret
+,,,;******************************************************************************
+,,,; Subrutinas de demora de 40us y 1,64ms
+,,,
+01F1,7A 28,delay_40,delay_40:  mov  R2, #40
+01F3,DD FE,,djnz  R5,$
+01F5,22,,ret
+01F6,7B 29,delay_164,delay_164:  mov  R3,#41
+01F8,31 F1,lazo2,lazo2:   call  delay_40
+01FA,DB FC,,djnz  R3,lazo2
+01FC,22,,ret
+,,,;******************************************************************************
+01FD,79 0A,delay_c,delay_c:  mov  R1,#10
+01FF,31 F6,lazo3,lazo3:   call  delay_164
+0201,D9 FC,,djnz  R1,lazo3
+0203,22,,ret
+,,,
+,,,
+,,,
+,,,
+,,,;***************************FIN DEL PROGRAMA***********************
+,,,
+000E,,,END

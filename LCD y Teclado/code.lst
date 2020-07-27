@@ -1,0 +1,530 @@
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 1
+
+
+
+
+
+       MCS-51 Family Macro Assembler   A S E M - 5 1   V 1.3
+       =====================================================
+
+
+
+	Source File:	code.ASM
+	Object File:	code.hex
+	List File:	code.lst
+
+
+
+ Line  I  Addr  Code            Source
+
+    1:
+    2:		N      0030		DIG_1 EQU 30H
+    3:		N      0031		DIG_2 EQU 31H
+    4:		N      0032		DIG_3 EQU 32H
+    5:		N      0033		DIG_4 EQU 33H
+    6:		B      0081		E     EQU P0.1
+    7:		B      0080		RS    EQU P0.0
+    8:		B      000F		MAL   EQU 21H.7
+    9:				;-----------------------------------------------------------------
+   10:		N      0000		ORG 00H
+   11:	  0000	02 00 50		JMP STARTUP
+   12:
+   13:	  0003	2F 58 2D 2B		TABLA: DB '/','X','-','+',9,6,3,'=',8,5,2,0,7,4,1,'ON'
+	  0007	09 06 03 3D
+	  000B	08 05 02 00
+	  000F	07 04 01 4F
+	  0013	4E
+   14:
+   15:					; Secuencia de comandos para inicializar el trabajo del LCD.
+   16:	  0014	28 06 0E 80		tablac:  db  28h,06h,0Eh,80h,0fh ;CONEXION DE 4 BITS CON 2 LINEAS,MOVIMIENTO DEL CURSOSR DE
+	  0018	0F		IZQ A DER,ENCENDER PANTALLA Y ACTIVAR CURSOR,POSICION INICIAL 					 ;DE
+				L CURSOR
+   17:				;******************************************************************************
+   18:				; cartel 1.
+   19:	  0019	30 31 32 33	tablad1:  db  '0123456789' ;ES EL NUM Y UN 2 DELANTE EJ 7-27
+	  001D	34 35 36 37
+	  0021	38 39
+   20:	  0023	00		db  0   ; fin de cartel
+   21:				;******************************************************************************
+   22:
+   23:				;******************************************************************************
+   24:				; cartel 1.
+   25:	  0024	41 4C 41 52	tablad2:  db  'ALARMA ACTIVA'
+	  0028	4D 41 20 41
+	  002C	43 54 49 56
+	  0030	41
+   26:	  0031	00		db  0   ; fin de cartel
+   27:				;******************************************************************************
+   28:				; cartel 2.
+   29:	  0032	41 4C 41 52	tablad3:  db  'ALARMA DESACTIVA'
+	  0036	4D 41 20 44
+	  003A	45 53 41 43
+	  003E	54 49 56 41
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 2
+
+
+
+ Line  I  Addr  Code            Source
+
+   30:	  0042	00		db  0   ; fin de cartel
+   31:				;******************************************************************************
+   32:		N      0050		ORG 50H
+   33:	  0050			STARTUP:
+   34:				;---------------------------INICIALIZACION---------------------
+   35:	  0050	D2 81			SETB E			;DESHABILITA EL LCD
+   36:	  0052	D2 80			SETB RS			;DESHABILITA EL LCD
+   37:	  0054	C2 0F			CLR MAL
+   38:	  0056	78 30			MOV R0,#30H
+   39:	  0058	75 37 04		MOV 37H,#4
+   40:	  005B	75 33 04		MOV DIG_4,#04H
+   41:	  005E	75 32 03		MOV DIG_3,#03H
+   42:	  0061	75 31 02		MOV DIG_2,#02H
+   43:	  0064	75 30 01		MOV DIG_1,#01H
+   44:
+   45:				;--------------------------------------------------------------
+   46:
+   47:	  0067	C2 00			CLR 20H.0		;BANDERA QUE INDICA SI SE PRESIONA UNA TECLA
+   48:
+   49:				; Inicializando el trabajo del LCD.
+   50:	  0069	12 01 A3		call  lcd_ini
+   51:	  006C	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+   52:	  006E	12 01 98		call SEND_TO_P0	; (PARTE ALTA) borra LCD y Home.
+   53:	  0071	12 01 EB		call  lcd_e   ; habilita al Display
+   54:	  0074	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+   55:
+   56:	  0077	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+   57:	  0079	12 01 98		call SEND_TO_P0;(PARTE BAJA) borra LCD y Home.
+   58:	  007C	12 01 EB		call  lcd_e   ; habilita al Display
+   59:	  007F	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+   60:				;----------------------------------------------------------------------------------
+   61:	  0082	12 00 8F	BUS:	CALL TECLADO
+   62:	  0085	20 00 02		JB 20H.0,LAZO		;TECLA APRETADA?
+   63:	  0088	80 F8			JMP BUS
+   64:	  008A			LAZO:
+   65:	  008A	12 00 B1	CALL DISPLAY
+   66:	  008D	80 F3		JMP BUS
+   67:
+   68:				;------------SUBRUTINA TECLADO----------------------------------
+   69:	  008F			TECLADO:
+   70:	  008F	7E EF			MOV R6,#11101111B
+   71:	  0091	7D 04			MOV R5,#4
+   72:	  0093	7B 00			MOV R3,#0
+   73:	  0095			REPITE:
+   74:	  0095	8E A0			MOV P2,R6
+   75:	  0097	E5 A0			MOV A,P2
+   76:	  0099	7C 04			MOV R4,#4
+   77:	  009B			LAZO1:
+   78:	  009B	13			RRC A
+   79:	  009C	50 0F			JNC ENCONT
+   80:	  009E	0B			INC R3
+   81:	  009F	DC FA			DJNZ R4,LAZO1
+   82:	  00A1	EE			MOV A,R6
+   83:	  00A2	23			RL A
+   84:	  00A3	FE			MOV R6,A
+   85:	  00A4	DD EF			DJNZ R5,REPITE
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 3
+
+
+
+ Line  I  Addr  Code            Source
+
+   86:	  00A6	C2 00			CLR 20H.0
+   87:	  00A8	E5 00			MOV A,0
+   88:	  00AA	02 00 B0		JMP SALIR
+   89:	  00AD			ENCONT:
+   90:	  00AD	D2 00			SETB 20H.0
+   91:	  00AF	EB			MOV A,R3
+   92:	  00B0			SALIR:
+   93:	  00B0	22			RET
+   94:
+   95:				;-----------------SUBRUTINA DISPLAY--------------------------------------
+   96:	  00B1			DISPLAY:
+   97:
+   98:	  00B1	90 00 03		MOV DPTR,#TABLA
+   99:	  00B4	93			MOVC A,@A+DPTR
+  100:	  00B5	86 F0			MOV B,@R0
+  101:	  00B7	08			INC R0
+  102:
+  103:
+  104:	  00B8	B5 F0 03		CJNE A,B,ERROR
+  105:	  00BB	02 00 C0		JMP MANDALO
+  106:	  00BE				ERROR:
+  107:	  00BE	D2 0F			SETB MAL
+  108:
+  109:	  00C0				MANDALO:
+  110:				;-------------------------------asignacion de num----------------------------
+  111:	  00C0	90 00 19	mov dptr,#tablad1
+  112:	  00C3	93		movc a,@a+dptr
+  113:				;-----------------------------------------------------------------------------
+  114:	  00C4	C0 E0			PUSH ACC
+  115:	  00C6	54 F0			ANL A,#0F0H
+  116:	  00C8	75 F0 04		MOV B,#4
+  117:	  00CB	84			DIV AB		;ROTO DER
+  118:	  00CC	C2 80			CLR RS
+  119:	  00CE	12 01 98		call SEND_TO_P0
+  120:	  00D1	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  121:	  00D3	12 01 EB		call  lcd_e   ; habilita al Display
+  122:	  00D6	12 01 F1		call  delay_40 ;demora de 0.4 ms.
+  123:
+  124:	  00D9	D0 E0			POP ACC
+  125:	  00DB	54 0F			ANL A,#0FH
+  126:	  00DD	75 F0 04		MOV B,#4
+  127:	  00E0	A4			MUL AB		;ROTO IZQ
+  128:	  00E1	12 01 98		call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+  129:	  00E4	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  130:	  00E6	12 01 EB		call  lcd_e   ; habilita al Display
+  131:	  00E9	12 01 FD		call  delay_c  ;demora de 0.4 ms.
+  132:
+  133:	  00EC	D5 37 54		DJNZ 37H,NOO
+  134:	  00EF				MUESTRA:
+  135:	  00EF	30 0F 54		JNB MAL,BIEN
+  136:	  00F2	78 00		mov  R0, #0
+  137:	  00F4	7C 00		mov  R4, #0
+  138:
+  139:	  00F6	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+  140:	  00F8	74 00			mov a,#0
+  141:	  00FA	12 01 98		call SEND_TO_P0	; (PARTE ALTA) borra LCD y Home.
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 4
+
+
+
+ Line  I  Addr  Code            Source
+
+  142:	  00FD	12 01 EB		call  lcd_e   ; habilita al Display
+  143:	  0100	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+  144:
+  145:	  0103	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+  146:	  0105	74 04			mov  a, #00000100b	 ;(PARTE BAJA) borra LCD y Home.
+  147:	  0107	12 01 98		call SEND_TO_P0
+  148:	  010A	12 01 EB		call  lcd_e   ; habilita al Display
+  149:	  010D	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+  150:
+  151:	  0110	90 00 24	mov  dptr, #tablad2 ; puntero de la Tabla 2.
+  152:	  0113	EC		otrodd:   mov  a, R4   ; carga desplazamiento en Tabla
+  153:	  0114	93		movc  a, @a+dptr  ; extrae carácter a mostrar de la Tabla
+  154:	  0115	60 80		jz  NO ; ¿ Fin del cartel?
+				      ^
+			  @@@@@ address out of range @@@@@
+
+  155:	  0117	C0 E0			PUSH ACC
+  156:	  0119	54 F0			ANL A,#0F0H
+  157:	  011B	75 F0 04		MOV B,#4
+  158:	  011E	84			DIV AB		;ROTO DER
+  159:	  011F	C2 80			CLR RS
+  160:	  0121	12 01 98		call SEND_TO_P0; valor ASCII a sacar por Puerto1 (PARTE ALTA)
+  161:	  0124	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  162:	  0126	12 01 EB		call  lcd_e   ; habilita al Display
+  163:	  0129	12 01 F1		call  delay_40 ;demora de 0.4 ms.
+  164:
+  165:	  012C	D0 E0			POP ACC
+  166:	  012E	54 0F			ANL A,#0FH
+  167:	  0130	75 F0 04		MOV B,#4
+  168:	  0133	A4			MUL AB		;ROTO IZQ
+  169:	  0134	12 01 98		call SEND_TO_P0; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+  170:	  0137	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  171:	  0139	12 01 EB		call  lcd_e   ; habilita al Display
+  172:	  013C	12 01 FD		call  delay_c  ;demora de 0.4 ms.
+  173:	  013F	08		inc  R0
+  174:	  0140	0C		inc  R4
+  175:	  0141	80 D0		jmp  otrodd
+  176:
+  177:	  0143			NOO:
+  178:	  0143	02 01 97		JMP NO
+  179:	  0146				BIEN:
+  180:	  0146	78 00		mov  R0, #0
+  181:	  0148	7C 00		mov  R4, #0
+  182:
+  183:	  014A	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+  184:	  014C	74 00			mov  a, #00000000b 	; (PARTE ALTA) borra LCD y Home.
+  185:	  014E	12 01 98		call SEND_TO_P0
+  186:	  0151	12 01 EB		call  lcd_e   ; habilita al Display
+  187:	  0154	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+  188:
+  189:	  0157	C2 80			clr  RS  ; pone a RS en ´0´ (modo comando)
+  190:	  0159	74 04			mov  a, #00000100b	 ;(PARTE BAJA) borra LCD y Home.
+  191:	  015B	12 01 98		call SEND_TO_P0
+  192:	  015E	12 01 EB		call  lcd_e   ; habilita al Display
+  193:	  0161	12 01 F6		call  delay_164  ; demora de 1.64 ms.
+  194:
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 5
+
+
+
+ Line  I  Addr  Code            Source
+
+  195:	  0164	90 00 32	mov  dptr, #tablad3 ; puntero de la Tabla 2.
+  196:	  0167	EC		otrod:   mov  a, R4   ; carga desplazamiento en Tabla
+  197:	  0168	93		movc  a, @a+dptr  ; extrae carácter a mostrar de la Tabla
+  198:	  0169	60 2C		jz  NO  ; ¿ Fin del cartel?
+  199:	  016B	C0 E0			PUSH ACC
+  200:	  016D	54 F0			ANL A,#0F0H
+  201:	  016F	75 F0 04		MOV B,#4
+  202:	  0172	84			DIV AB		;ROTO DER
+  203:	  0173	C2 80			CLR RS
+  204:	  0175	12 01 98		call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE ALTA)
+  205:	  0178	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  206:	  017A	12 01 EB		call  lcd_e   ; habilita al Display
+  207:	  017D	12 01 F1		call  delay_40 ;demora de 0.4 ms.
+  208:
+  209:	  0180	D0 E0			POP ACC
+  210:	  0182	54 0F			ANL A,#0FH
+  211:	  0184	75 F0 04		MOV B,#4
+  212:	  0187	A4			MUL AB		;ROTO IZQ
+  213:	  0188	12 01 98		call SEND_TO_P0   ; valor ASCII a sacar por Puerto1 (PARTE BAJA)
+  214:	  018B	D2 80			SETB  RS  ; pone RS en ´1´ (modo dato).
+  215:	  018D	12 01 EB		call  lcd_e   ; habilita al Display
+  216:	  0190	12 01 FD		call  delay_c  ;demora de 0.4 ms.
+  217:	  0193	08		inc  R0
+  218:	  0194	0C		inc  R4
+  219:	  0195	80 D0		jmp  otrod
+  220:	  0197				NO:
+  221:	  0197	22			RET
+  222:
+  223:
+  224:
+  225:	  0198			SEND_TO_P0:
+  226:	  0198	F5 40			MOV 40H,A		;GUARDO EL NUMERO QUE SE ENVIA A P0
+  227:	  019A	E5 80			MOV A,P0		;LECTURA DE P0
+  228:	  019C	54 C0			ANL A,#11000000B	;ME QUEDO CON LOS DOS BITS MAS ALTOS DE P0
+  229:	  019E	45 40			ORL A,40H		;CONCATENANDO LOS BITS
+  230:	  01A0	F5 80			MOV P0,A
+  231:	  01A2	22			RET
+  232:				;-----------------------------------------------------------------------
+  233:
+  234:				; Subrutina para la inicialización del LCD.
+  235:				; Bus de Datos de 4 bits.
+  236:				; Movimiento del cursor hacia la derecha.
+  237:				; Limpiando la pantalla antes de empezar.
+  238:				; Colocar cursor en la posición primera de la primera línea.
+  239:
+  240:	  01A3	79 00		lcd_ini:  mov  R1, #0  ; desplazamiento en la tabla de Comandos
+  241:	  01A5	90 00 14	mov  DPTR, #tablac ; puntero a Tabla de Comandos.
+  242:	  01A8	E9		otroc:   mov  a, R1
+  243:	  01A9	93		movc  a, @a+DPTR  ; saca de la tabal el Comando a enviar.
+  244:	  01AA	C2 80		clr  RS
+  245:
+  246:	  01AC	C0 E0		PUSH ACC
+  247:	  01AE	54 F0		ANL A,#0F0H
+  248:	  01B0	75 F0 04	MOV B,#4	;ROTO HASTA POSICION DESEADA
+  249:	  01B3	84		DIV AB		;ROTO DER
+  250:	  01B4	31 98		call SEND_TO_P0;(PARTE ALTA)
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 6
+
+
+
+ Line  I  Addr  Code            Source
+
+  251:	  01B6	12 01 EB	call  lcd_e
+  252:	  01B9	12 01 F1	call  delay_40
+  253:
+  254:	  01BC	C2 80		clr  RS
+  255:	  01BE	75 F0 04	MOV B,#4
+  256:	  01C1	D0 E0		POP ACC
+  257:	  01C3	54 0F		ANL A,#0FH
+  258:	  01C5	A4		MUL AB		;ROTO IZQ
+  259:	  01C6	31 98		call SEND_TO_P0 	;(PARTE BAJA)
+  260:	  01C8	12 01 EB	call  lcd_e
+  261:	  01CB	12 01 F1	call  delay_40
+  262:	  01CE	09		inc  R1
+  263:
+  264:	  01CF	B9 04 D6	cjne  R1,#4, otroc  ; ¿ Fin de programación del LCD?
+  265:	  01D2	C2 80		clr  RS  ; pone a RS en ´0´ (modo comando)
+  266:	  01D4	74 00		mov  a, #00000000b ; borra LCD y Home. ;(PARTE ALTA)
+  267:	  01D6	31 98		call SEND_TO_P0
+  268:	  01D8	12 01 EB	call  lcd_e
+  269:	  01DB	12 01 F6	call  delay_164
+  270:
+  271:	  01DE	C2 80		clr  RS  ; pone a RS en ´0´ (modo comando)
+  272:	  01E0	74 04		mov  a, #00000100b ; borra LCD y Home. ;(PARTE BAJA)
+  273:	  01E2	31 98		call SEND_TO_P0
+  274:	  01E4	12 01 EB	call  lcd_e
+  275:	  01E7	12 01 F6	call  delay_164
+  276:	  01EA	22		ret
+  277:				;******************************************************************************
+  278:
+  279:				; Subrutina que genera el pulso de habilitación del LCD.
+  280:
+  281:	  01EB	D2 81		lcd_e:   setb E  ; pone a E en ´1´
+  282:	  01ED	00		NOP
+  283:	  01EE	C2 81		clr  E   ; pone a E en ´0´
+  284:	  01F0	22		ret
+  285:				;******************************************************************************
+  286:				; Subrutinas de demora de 40us y 1,64ms
+  287:
+  288:	  01F1	7A 28		delay_40:  mov  R2, #40
+  289:	  01F3	DD FE		djnz  R5,$
+  290:	  01F5	22		ret
+  291:	  01F6	7B 29		delay_164:  mov  R3,#41
+  292:	  01F8	31 F1		lazo2:   call  delay_40
+  293:	  01FA	DB FC		djnz  R3,lazo2
+  294:	  01FC	22		ret
+  295:				;******************************************************************************
+  296:	  01FD	79 0A		delay_c:  mov  R1,#10
+  297:	  01FF	31 F6		lazo3:   call  delay_164
+  298:	  0201	D9 FC		djnz  R1,lazo3
+  299:	  0203	22		ret
+  300:
+  301:
+  302:
+  303:
+  304:				;***************************FIN DEL PROGRAMA***********************
+  305:
+  306:				END
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 7
+
+
+
+
+
+
+
+
+                     register banks used:  ---
+
+                     1 error detected
+
+
+
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 8
+
+
+
+
+
+	       L I S T   O F   S Y M B O L S
+	       =============================
+
+
+SYMBOL				  TYPE     VALUE	LINE
+------------------------------------------------------------
+??ASEM_51			  NUMBER    8051
+??VERSION			  NUMBER    0130
+AC				  BIT	      D6
+ACC				  DATA	      E0
+B				  DATA	      F0
+BIEN				  CODE	    0146	 179
+BUS				  CODE	    0082	  61
+CY				  BIT	      D7
+DELAY_164			  CODE	    01F6	 291
+DELAY_40			  CODE	    01F1	 288
+DELAY_C				  CODE	    01FD	 296
+DIG_1				  NUMBER    0030	   2
+DIG_2				  NUMBER    0031	   3
+DIG_3				  NUMBER    0032	   4
+DIG_4				  NUMBER    0033	   5
+DISPLAY				  CODE	    00B1	  96
+DPH				  DATA	      83
+DPL				  DATA	      82
+E				  NUMBER    0081	   6
+EA				  BIT	      AF
+ENCONT				  CODE	    00AD	  89
+ERROR				  CODE	    00BE	 106
+ES				  BIT	      AC
+ET0				  BIT	      A9
+ET1				  BIT	      AB
+EX0				  BIT	      A8
+EX1				  BIT	      AA
+EXTI0				  CODE	    0003
+EXTI1				  CODE	    0013
+F0				  BIT	      D5
+IE				  DATA	      A8
+IE0				  BIT	      89
+IE1				  BIT	      8B
+INT0				  BIT	      B2
+INT1				  BIT	      B3
+IP				  DATA	      B8
+IT0				  BIT	      88
+IT1				  BIT	      8A
+LAZO				  CODE	    008A	  64
+LAZO1				  CODE	    009B	  77
+LAZO2				  CODE	    01F8	 292
+LAZO3				  CODE	    01FF	 297
+LCD_E				  CODE	    01EB	 281
+LCD_INI				  CODE	    01A3	 240
+MAL				  NUMBER    000F	   8
+MANDALO				  CODE	    00C0	 109
+MUESTRA				  CODE	    00EF	 134
+NO				  CODE	    0197	 220
+NOO				  CODE	    0143	 177
+OTROC				  CODE	    01A8	 242
+
+ASEM-51 V1.3                                         Copyright (c) 2002 by W.W. Heinz                                         PAGE 9
+
+
+
+SYMBOL				  TYPE     VALUE	LINE
+------------------------------------------------------------
+OTROD				  CODE	    0167	 196
+OTRODD				  CODE	    0113	 152
+OV				  BIT	      D2
+P				  BIT	      D0
+P0				  DATA	      80
+P1				  DATA	      90
+P2				  DATA	      A0
+P3				  DATA	      B0
+PCON				  DATA	      87
+PS				  BIT	      BC
+PSW				  DATA	      D0
+PT0				  BIT	      B9
+PT1				  BIT	      BB
+PX0				  BIT	      B8
+PX1				  BIT	      BA
+RB8				  BIT	      9A
+RD				  BIT	      B7
+REN				  BIT	      9C
+REPITE				  CODE	    0095	  73
+RESET				  CODE	    0000
+RI				  BIT	      98
+RS				  NUMBER    0080	   7
+RS0				  BIT	      D3
+RS1				  BIT	      D4
+RXD				  BIT	      B0
+SALIR				  CODE	    00B0	  92
+SBUF				  DATA	      99
+SCON				  DATA	      98
+SEND_TO_P0			  CODE	    0198	 225
+SINT				  CODE	    0023
+SM0				  BIT	      9F
+SM1				  BIT	      9E
+SM2				  BIT	      9D
+SP				  DATA	      81
+STARTUP				  CODE	    0050	  33
+T0				  BIT	      B4
+T1				  BIT	      B5
+TABLA				  CODE	    0003	  13
+TABLAC				  CODE	    0014	  16
+TABLAD1				  CODE	    0019	  19
+TABLAD2				  CODE	    0024	  25
+TABLAD3				  CODE	    0032	  29
+TB8				  BIT	      9B
+TCON				  DATA	      88
+TECLADO				  CODE	    008F	  69
+TF0				  BIT	      8D
+TF1				  BIT	      8F
+TH0				  DATA	      8C
+TH1				  DATA	      8D
+TI				  BIT	      99
+TIMER0				  CODE	    000B
+TIMER1				  CODE	    001B
+TL0				  DATA	      8A
+TL1				  DATA	      8B
+TMOD				  DATA	      89
+TR0				  BIT	      8C
+
+ASEM-51 V1.3                                        Copyright (c) 2002 by W.W. Heinz                                         PAGE 10
+
+
+
+SYMBOL				  TYPE     VALUE	LINE
+------------------------------------------------------------
+TR1				  BIT	      8E
+TXD				  BIT	      B1
+WR				  BIT	      B6

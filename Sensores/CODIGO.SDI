@@ -1,0 +1,173 @@
+000B,,,LISTO EQU 27H.0
+000B,,,RD_ADC EQU P3.5
+000B,,,WR_ADC EQU P3.4
+000B,,,CS EQU P3.3
+,,,SENSOR EQU 35H
+,,,CONT EQU 36H
+000B,,,BOCINA EQU P0.0
+000B,,,BOMBA EQU P3.6
+000B,,,LAMP EQU P3.7
+000B,,,PRES EQU P0.2
+,,,org 0H
+0000,80 4E,,  sjmp  inicio ;salto al inicio del programa principal.  ; /////////////////////////////////////////
+,,,; Subrutina de atención a la interrupción EXTERNA 0 del microcontrolador
+,,,; empleada para atender el Fin de Conversión.
+,,,
+,,,; Leyendo el Conversor ADC0801.
+,,,org 03H
+0003,02 00 EB,,JMP EXT0
+,,,
+,,,;///////////////////////////////////////////////////////////////////////////////////////////////////
+,,,ORG 0BH         ;VECTOR DE INTERRUPCION DEL TIMER0
+000B,02 01 06,,JMP TMP0
+,,,
+,,,ORG 50H
+,,,; Inicio del programa principal.
+0050,,inicio,inicio:
+0050,C2 B6,, CLR BOMBA
+0052,C2 80,, CLR BOCINA
+0054,C2 B7,, CLR LAMP
+0056,C2 82,, CLR PRES
+0058,C2 38,, clr  LISTO ;limpiando bandera de dato leído
+005A,75 35 00,,  MOV SENSOR,#0
+005D,75 36 05,,  MOV CONT,#5
+,,,
+0060,7F 00,,  mov  R7,#0 ;limpiando el registro de dato leído
+0062,75 88 11,,  MOV TCON,#11H         ;EXTERNA0 POR FRENTE DESCENDENTE Y HABILITACION DEL TIMER0
+,,,; Dando una falsa lectura al conversor.
+,,,; Esto hay que hacerlo solo una vez y con ello garantizamos que el conversor
+,,,; este listo para el trabajo. Es como un RESET al conversor.
+0065,C2 B3,,  clr  CS ; se pone SELECT a 0 y no se cambia mas
+0067,C2 B5,,  clr  RD_ADC  ; LECT a 0, lectura del conversor.
+0069,00,,  nop
+006A,00,,  nop
+006B,D2 B5,,  setb RD_ADC
+,,,; Esperando por dato leído, respuesta de la Subrutina de atención a Fin de
+,,,; Conversión.
+,,,
+006D,79 00,,                MOV R1,#0               ;REGISTRO QUE SE VA A LLEVAR A 2 EN EL TIMER PARA EJECUTAR L
+006F,75 89 01,,                MOV TMOD,#01H           ;TIMER0 EN MODO 1 DE 16 BITS
+0072,75 8A D8,,                MOV TL0,#0D8H
+0075,75 8C F0,,                MOV TH0,#0F0H
+0078,75 B8 01,,                MOV IP,#01H
+007B,75 A8 82,,                MOV IE,#82H             ;HABILITA LA INTERRUPCION GLOBAL Y TIMER 0
+,,,
+007E,,REVISALO,REVISALO:
+,,,; Habilitar la interrupcion EXTERNA 0.
+007E,C2 89,,  clr  IE0  ;limpiando la bandera de interrupción EXTERNA 0
+0080,D2 A8,,  SETB IE.0  ;habilitando la interrupción EXTERNA 0
+0082,D2 AF,,  SETB IE.7
+0084,30 38 FD,,jnb LISTO,$
+0087,C2 38,,clr  LISTO ;limpiando la bandera de dato leído
+,,,; TRABAJANDO CON EL DATO LEIDO. El dato a mostrar esta en el Registro R7.
+,,,
+0089,E5 B0,,  MOV A,P3
+008B,45 35,,  ORL A,SENSOR
+008D,F5 B0,,  MOV P3,A      ;PREPARO PARA LEER OTRO SENSOR
+,,,
+008F,74 00,,MOV A,#0
+0091,85 35 F0,,MOV B,SENSOR
+0094,65 F0,,XRL A,B
+0096,70 22,,JNZ SENSOR_HUMO
+,,,
+,,,
+0098,74 01,,MOV A,#1
+009A,85 35 F0,,MOV B,SENSOR
+009D,65 F0,,XRL A,B
+009F,70 29,,JNZ SENSOR_LUZ
+,,,
+00A1,74 02,,MOV A,#2
+00A3,85 35 F0,,MOV B,SENSOR
+00A6,65 F0,,XRL A,B
+00A8,70 30,,JNZ SENSOR_PRESENCIA
+,,,
+00AA,,SENSOR_NIVEL,SENSOR_NIVEL:
+00AA,EF,,MOV A,R7
+00AB,B4 0F 00,,CJNE A,#0FH,NO_EQ
+00AE,,NO_EQ,NO_EQ:
+00AE,40 05,,JC APAGA
+,,,;ENCIENDE
+00B0,D2 B6,,SETB BOMBA
+00B2,02 00 E7,,JMP EXIT
+00B5,,APAGA,APAGA:
+00B5,C2 B6,,CLR BOMBA
+00B7,02 00 E7,,JMP EXIT
+,,,
+,,,
+00BA,,SENSOR_HUMO,SENSOR_HUMO:
+00BA,EF,,MOV A,R7
+00BB,B4 0F 00,,CJNE A,#0FH,NO_EQ1
+00BE,,NO_EQ1,NO_EQ1:
+00BE,40 05,,JC APAGA1
+,,,;ENCIENDE
+00C0,D2 80,,SETB BOCINA
+00C2,02 00 E7,,JMP EXIT
+00C5,,APAGA1,APAGA1:
+00C5,C2 80,,CLR BOCINA
+00C7,02 00 E7,,JMP EXIT
+,,,
+00CA,,SENSOR_LUZ,SENSOR_LUZ:
+00CA,EF,,MOV A,R7
+00CB,B4 0F 00,,CJNE A,#0FH,NO_EQ2
+00CE,,NO_EQ2,NO_EQ2:
+00CE,40 05,,JC APAGA2
+,,,;ENCIENDE
+00D0,D2 B7,,SETB LAMP
+00D2,02 00 E7,,JMP EXIT
+00D5,,APAGA2,APAGA2:
+00D5,C2 B7,,CLR LAMP
+00D7,02 00 E7,,JMP EXIT
+,,,
+00DA,,SENSOR_PRESENCIA,SENSOR_PRESENCIA:
+00DA,EF,,MOV A,R7
+00DB,B4 0F 00,,CJNE A,#0FH,NO_EQ3
+00DE,,NO_EQ3,NO_EQ3:
+00DE,40 05,,JC APAGA3
+,,,;ENCIENDE
+00E0,D2 82,,SETB PRES
+00E2,02 00 E7,,JMP EXIT
+00E5,,APAGA3,APAGA3:
+00E5,C2 82,,CLR PRES
+,,,
+00E7,,EXIT,EXIT:
+00E7,05 35,,INC SENSOR
+00E9,80 93,,JMP REVISALO
+,,,
+00EB,,EXT0,EXT0:
+,,,
+,,,  ;CLR IE.0 ;deshabilitando la interrupción EXTERNA 0
+00EB,E5 36,,  MOV A,CONT
+00ED,D5 E0 06,,  DJNZ ACC,SIGUE
+,,,;CLR P2.0
+00F0,75 36 05,,  MOV CONT,#5
+00F3,75 35 00,,  MOV SENSOR,#0
+00F6,,SIGUE,  SIGUE:
+00F6,15 36,,  DEC CONT
+00F8,C2 B5,,  clr RD_ADC  ;dando lectura al ADC0801, CS/ esta a 0.
+00FA,00,,  nop   ;esperando por la respuesta del conversor ADC0801
+00FB,00,,  nop
+00FC,D2 B5,,  setb RD_ADC
+00FE,E5 90,,  mov  A,P1  ;leyendo el ADC0801
+0100,FF,,  mov  R7,A  ;salvando el dato leído
+0101,D2 38,,  setb  LISTO  ;indicando que hay un dato leído listo para ser mostrado
+0103,D2 B5,,  setb RD_ADC ;quitando orden del lectura del ADC0801
+0105,32,,reti
+,,,
+0106,,TMP0,TMP0:
+0106,B2 A0,,                CPL P2.0
+0108,09,,                INC R1
+0109,B9 0A 08,,                CJNE R1,#10,OUT
+,,,
+010C,C2 B4,,                clr  WR_ADC ; ICON a 0, inicio de conversión.
+010E,00,,                nop
+010F,00,,                nop
+0110,D2 B4,,                setb WR_ADC
+0112,79 00,,                MOV R1,#0
+,,,
+,,,
+0114,75 8A D8,OUT,OUT:            MOV TL0,#0D8H
+0117,75 8C F0,,                MOV TH0,#0F0H
+011A,32,,                RETI
+,,,
+,,,;-----------------------------------------------------------------------
+000E,,,        END
